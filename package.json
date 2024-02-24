@@ -1,6 +1,6 @@
 {
-  "name": "async-queue",
-  "version": "1.0.0",
+  "name": "@snowflake04/async-queue",
+  "version": "0.1.0",
   "description": "A method to handle queues async",
   "main": "index.js",
   "directories": {
