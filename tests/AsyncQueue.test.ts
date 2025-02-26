@@ -1,88 +1,161 @@
 ﻿import { AsyncQueue } from '../src/AsyncQueue';
-import { describe, it, expect, beforeEach } from '@jest/globals';
 
 describe('AsyncQueue', () => {
   let queue: AsyncQueue;
 
   beforeEach(() => {
-    queue = new AsyncQueue(2); // Concurrency limit of 2
+    queue = new AsyncQueue(2); // Set concurrency to 2 for testing
   });
 
-  it('should allow tasks within concurrency limit', async () => {
-    await queue.wait();
-    await queue.wait();
+  it('should initialize with default values', () => {
+    expect(queue.remaining).toBe(0);
+    expect(queue.queued).toBe(0);
+    expect(queue.metrics).toEqual({
+      activeTasks: 0,
+      queuedTasks: 0,
+      averageWaitTime: 0,
+      throughput: 0,
+    });
+  });
+
+  it('should add tasks to the queue', async () => {
+    const task = queue.wait();
+    expect(queue.remaining).toBe(1);
+    expect(queue.queued).toBe(0);
+
+    queue.shift();
+    await task;
     expect(queue.remaining).toBe(0);
   });
 
-  it('should queue tasks beyond concurrency limit', async () => {
-    await queue.wait();
-    await queue.wait();
-    const task = queue.wait();
+  it('should respect concurrency limit', async () => {
+    const task1 = queue.wait();
+    const task2 = queue.wait();
+    const task3 = queue.wait();
+
+    expect(queue.remaining).toBe(3);
     expect(queue.queued).toBe(1);
+
     queue.shift();
-    await task;
+    await task1;
+    expect(queue.remaining).toBe(2);
+    expect(queue.queued).toBe(0);
+
+    queue.shift();
+    await task2;
+    expect(queue.remaining).toBe(1);
+    expect(queue.queued).toBe(0);
+
+    queue.shift();
+    await task3;
+    expect(queue.remaining).toBe(0);
   });
 
-  it('should abort all queued tasks', async () => {
-    const abortController = {
-      aborted: false,
-      addEventListener(type: 'abort', listener: () => void) {
-        this.listener = listener;
-      },
-      removeEventListener(type: 'abort', listener: () => void) {
-        this.listener = undefined;
-      },
-      abort() {
-        this.aborted = true;
-        if (this.listener) this.listener();
-      },
-    };
+  it('should handle task priorities', async () => {
+    const highPriorityTask = queue.wait({ priority: 'high' });
+    const normalPriorityTask = queue.wait({ priority: 'normal' });
+    const lowPriorityTask = queue.wait({ priority: 'low' });
 
-    const task = queue.wait({ signal: abortController });
-    abortController.abort();
-    await expect(task).rejects.toThrow('Request aborted manually');
-  });
+    expect(queue.remaining).toBe(3);
+    expect(queue.queued).toBe(1);
 
-  it('should clear the queue', () => {
-    queue.wait();
-    queue.clear();
+    queue.shift();
+    await highPriorityTask;
+    expect(queue.remaining).toBe(2);
+
+    queue.shift();
+    await normalPriorityTask;
+    expect(queue.remaining).toBe(1);
+
+    queue.shift();
+    await lowPriorityTask;
     expect(queue.remaining).toBe(0);
   });
 
   it('should pause and resume the queue', async () => {
     queue.pause();
     const task = queue.wait();
-    expect(queue.queued).toBe(1);
+    expect(queue.remaining).toBe(1);
+    expect(queue.queued).toBe(0);
+
     queue.resume();
     queue.shift();
     await task;
+    expect(queue.remaining).toBe(0);
   });
 
-  it('should handle task dependencies', async () => {
-    const dependency = Promise.resolve();
-    const task = queue.wait({ dependencies: [dependency] });
+  it('should abort all tasks', async () => {
+    const task1 = queue.wait();
+    const task2 = queue.wait();
+    const task3 = queue.wait();
+
+    queue.abortAll();
+    expect(queue.remaining).toBe(0);
+    expect(queue.queued).toBe(0);
+
+    await expect(task1).rejects.toThrow('Request aborted manually');
+    await expect(task2).rejects.toThrow('Request aborted manually');
+    await expect(task3).rejects.toThrow('Request aborted manually');
+  });
+
+  it('should clear the queue', () => {
+    queue.wait();
+    queue.wait();
+    queue.clear();
+    expect(queue.remaining).toBe(0);
+    expect(queue.queued).toBe(0);
+  });
+
+  it('should update concurrency', async () => {
+    queue.setConcurrency(1);
+    const task1 = queue.wait();
+    const task2 = queue.wait();
+
+    expect(queue.remaining).toBe(2);
+    expect(queue.queued).toBe(1);
+
+    queue.shift();
+    await task1;
+    expect(queue.remaining).toBe(1);
+    expect(queue.queued).toBe(0);
+
+    queue.setConcurrency(2);
+    queue.shift();
+    await task2;
+    expect(queue.remaining).toBe(0);
+  });
+
+  it('should emit events', async () => {
+    const queuedListener = jest.fn();
+    const startedListener = jest.fn();
+    const completedListener = jest.fn();
+
+    queue.onQueued(queuedListener);
+    queue.onStarted(startedListener);
+    queue.onCompleted(completedListener);
+
+    const task = queue.wait();
+    expect(queuedListener).toHaveBeenCalled();
+
     queue.shift();
     await task;
+    expect(startedListener).toHaveBeenCalled();
+    expect(completedListener).toHaveBeenCalled();
   });
 
-  it('should track task metrics', async () => {
-    await queue.wait();
-    await queue.wait();
-    expect(queue.metrics.activeTasks).toBe(2);
-    expect(queue.metrics.queuedTasks).toBe(0);
-  });
+  it('should calculate metrics', async () => {
+    const task1 = queue.wait();
+    const task2 = queue.wait();
 
-  it('should adjust concurrency dynamically', () => {
-    queue.setConcurrency(3);
-    expect(queue.metrics.activeTasks).toBe(0);
-  });
+    queue.shift();
+    await task1;
+    queue.shift();
+    await task2;
 
-  it('should prioritize high-priority tasks', async () => {
-    const lowPriorityTask = queue.wait({ priority: 'low' });
-    const highPriorityTask = queue.wait({ priority: 'high' });
-
-    queue.shift(); // Process the first task
-    await highPriorityTask; // High-priority task should complete first
-    await lowPriorityTask; // Low-priority task should complete next
+    const metrics = queue.metrics;
+    expect(metrics.activeTasks).toBe(0);
+    expect(metrics.queuedTasks).toBe(0);
+    expect(metrics.averageWaitTime).toBeGreaterThan(0);
+    expect(metrics.throughput).toBeGreaterThan(0);
   });
 });

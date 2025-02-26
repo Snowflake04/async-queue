@@ -1,4 +1,4 @@
-﻿# AsyncQueue Documentation
+﻿# Async Queue
 
 The `AsyncQueue` package is a robust and efficient asynchronous queue for managing concurrent tasks with support for concurrency control, task prioritization, event handling, and more. It is designed to be environment-agnostic, meaning it works in browsers, Node.js, Deno, and other JavaScript runtimes.
 
@@ -43,7 +43,7 @@ The `AsyncQueue` package is a robust and efficient asynchronous queue for managi
 To install the `AsyncQueue` package, use npm:
 
 ```bash
-npm install async-queue
+npm install @snowflake04/async-queue
 ```
 
 ---
@@ -55,7 +55,7 @@ npm install async-queue
 Create an `AsyncQueue` instance and add tasks to it. Tasks will execute concurrently up to the specified concurrency limit.
 
 ```typescript
-import { AsyncQueue } from 'async-queue';
+import { AsyncQueue } from '@snowflake04/async-queue';
 
 const queue = new AsyncQueue(2); // Concurrency limit of 2
 
@@ -133,8 +133,8 @@ queue.onStarted((task) => {
   console.log('Task started:', task.data);
 });
 
-queue.onCompleted((task) => {
-  console.log('Task completed:', task.data);
+queue.onCompleted(() => {
+  console.log("All tasks has been completed");
 });
 
 queue.onFailed((task, error) => {
@@ -166,18 +166,6 @@ queue.onQueued((task) => {
     console.log('Critical task queued:', task.data);
   }
 });
-```
-
----
-
-### Task Retries
-
-Tasks can be retried a specified number of times with a delay between retries.
-
-```typescript
-queue.wait({ retries: 3, retryDelay: 1000 }) // Retry 3 times with 1-second delay
-  .then(() => runTask(1))
-  .catch((err) => console.error('Task failed after retries:', err));
 ```
 
 ---
@@ -251,7 +239,7 @@ Adds a listener for the `queued` event.
 #### `queue.onStarted(listener: (task: AsyncQueueEntry) => void): void`
 Adds a listener for the `started` event.
 
-#### `queue.onCompleted(listener: (task: AsyncQueueEntry) => void): void`
+#### `queue.onCompleted(): void`
 Adds a listener for the `completed` event.
 
 #### `queue.onFailed(listener: (task: AsyncQueueEntry, error: Error) => void): void`
@@ -264,7 +252,7 @@ Adds a listener for the `failed` event.
 ### Basic Example
 
 ```typescript
-import { AsyncQueue } from 'async-queue';
+import { AsyncQueue } from '@snowflake04/async-queue';
 
 const queue = new AsyncQueue(2);
 

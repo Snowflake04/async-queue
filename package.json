@@ -12,7 +12,15 @@
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
-    "prepublishOnly": "npm test && npm run lint"
+    "prepublishOnly": "npm test && npm run lint && node scripts/pre_release.cjs",
+    "postpublish": "git checkout -- package.json"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/bundle.mjs",
+      "require": "./dist/bundle.cjs.js",
+      "browser": "./dist/browser/bundle.iife.js"
+    }
   },
   "keywords": [
     "async",
@@ -25,7 +33,7 @@
     "timeout",
     "dependencies"
   ],
-  "author": "snowflakes",
+  "author": "Snowflake04",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -47,7 +55,16 @@
     "jest": "^29.0.0",
     "prettier": "^2.0.0",
     "rollup": "^3.0.0",
+    "ts-jest": "^29.2.6",
     "tslib": "^2.8.1",
-    "typescript": "^4.9.0"
+    "tsx": "^4.19.3",
+    "typescript": "^4.9.5"
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "dependencies": {
+    "yoctocolors": "^2.1.1"
   }
 }

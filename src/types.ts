@@ -1,14 +1,8 @@
 ﻿export type Priority = 'high' | 'normal' | 'low';
 
-export interface AbortSignalLike {
-  readonly aborted: boolean;
-  addEventListener(type: 'abort', listener: () => void): void;
-  removeEventListener(type: 'abort', listener: () => void): void;
-}
-
 export interface AsyncQueueOptions {
   priority?: Priority; // Add priority option
-  signal?: AbortSignalLike;
+  signal?: AbortSignal;
   timeout?: number;
   retries?: number;
   retryDelay?: number;

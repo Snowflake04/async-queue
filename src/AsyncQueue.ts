@@ -1,6 +1,6 @@
-﻿import { AsyncQueueEntry } from './AsyncQueueEntry';
-import { AsyncQueueOptions, Priority, TaskMetrics, AsyncQueueEvents } from './types';
-import { EventEmitter } from './events';
+﻿import { AsyncQueueEntry } from "./AsyncQueueEntry";
+import { AsyncQueueOptions, TaskMetrics } from "./types";
+import { EventEmitter } from "./events";
 
 export class AsyncQueue<T = any> {
   private queue: AsyncQueueEntry<T>[] = [];
@@ -12,7 +12,7 @@ export class AsyncQueue<T = any> {
   private completedTasks: number = 0;
   private lastProcessedTime: number = Date.now();
 
-  constructor(concurrency: number = Infinity) {
+  constructor(concurrency: number = 1) {
     this.concurrency = concurrency;
   }
 
@@ -32,25 +32,26 @@ export class AsyncQueue<T = any> {
     return {
       activeTasks: this.activeCount,
       queuedTasks: this.queued,
-      averageWaitTime: this.completedTasks > 0 ? this.totalWaitTime / this.completedTasks : 0,
+      averageWaitTime:
+        this.completedTasks > 0 ? this.totalWaitTime / this.completedTasks : 0,
       throughput,
     };
   }
 
   onQueued(listener: (task: AsyncQueueEntry<T>) => void): void {
-    this.events.on('queued', listener);
+    this.events.on("queued", listener);
   }
 
   onStarted(listener: (task: AsyncQueueEntry<T>) => void): void {
-    this.events.on('started', listener);
+    this.events.on("started", listener);
   }
 
   onCompleted(listener: (task: AsyncQueueEntry<T>) => void): void {
-    this.events.on('completed', listener);
+    this.events.on("completed", listener);
   }
 
   onFailed(listener: (task: AsyncQueueEntry<T>, error: Error) => void): void {
-    this.events.on('failed', listener);
+    this.events.on("failed", listener);
   }
 
   pause(): void {
@@ -68,19 +69,18 @@ export class AsyncQueue<T = any> {
     if (this.activeCount < this.concurrency && !this.isPaused) {
       this.activeCount++;
       await entry.waitForDependencies();
-      this.events.emit('started', entry);
+      this.events.emit("started", entry);
       return;
     }
 
     // Add the task to the queue and sort by priority
     this.queue.push(entry);
     this.queue.sort((a, b) => a.priorityWeight - b.priorityWeight); // Sort by priority
-    this.events.emit('queued', entry);
+    this.events.emit("queued", entry);
 
     if (options.signal) {
       entry.setSignal(options.signal);
     }
-
     await entry.promise;
   }
 
@@ -90,11 +90,16 @@ export class AsyncQueue<T = any> {
     this.totalWaitTime += this.queue[0]?.waitTime || 0;
     this.lastProcessedTime = Date.now();
 
+    if (this.queue.length === 0) {
+      this.events.emit("completed", null);
+      return;
+    }
+
     if (this.queue.length > 0 && !this.isPaused) {
       const nextEntry = this.queue.shift()!;
       this.activeCount++;
       nextEntry.use();
-      this.events.emit('started', nextEntry);
+      this.events.emit("started", nextEntry);
     }
   }
 
@@ -116,11 +121,15 @@ export class AsyncQueue<T = any> {
   }
 
   private processQueue(): void {
-    while (this.activeCount < this.concurrency && this.queue.length > 0 && !this.isPaused) {
+    while (
+      this.activeCount < this.concurrency &&
+      this.queue.length > 0 &&
+      !this.isPaused
+    ) {
       const nextEntry = this.queue.shift()!;
       this.activeCount++;
       nextEntry.use();
-      this.events.emit('started', nextEntry);
+      this.events.emit("started", nextEntry);
     }
   }
 }
