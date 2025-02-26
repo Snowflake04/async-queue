@@ -1,6 +1,6 @@
 {
   "name": "async-queue",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "A robust asynchronous queue for managing concurrent tasks with support for concurrency control, task prioritization, event handling, and more.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
